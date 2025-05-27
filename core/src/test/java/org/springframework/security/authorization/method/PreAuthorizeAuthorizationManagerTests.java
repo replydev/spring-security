@@ -118,6 +118,28 @@ public class PreAuthorizeAuthorizationManagerTests {
 	}
 
 	@Test
+	public void checkRequiresAdminWhenClassAnnotationsAndMethodFromAbstractClass() throws Exception {
+		// Arrange
+		Supplier<Authentication> authentication = () -> new TestingAuthenticationToken("user", "password", "ROLE_ADMIN");
+		MockMethodInvocation methodInvocation = new MockMethodInvocation(new ActualProtectedClassWithMethodInAbstract(),
+				ActualProtectedClassWithMethodInAbstract.class, "doSomethingString", new Class[] { String.class }, new Object[] { "s" });
+		PreAuthorizeAuthorizationManager manager = new PreAuthorizeAuthorizationManager();
+
+		// Act
+		AuthorizationDecision decision = manager.check(authentication, methodInvocation);
+
+		// Assert
+		assertThat(decision).isNotNull();
+		assertThat(decision.isGranted()).isTrue();
+
+		// Retry with USER role and should fail
+		authentication = () -> new TestingAuthenticationToken("user", "password", "ROLE_USER");
+		decision = manager.check(authentication, methodInvocation);
+		assertThat(decision).isNotNull();
+		assertThat(decision.isGranted()).isFalse();
+	}
+
+	@Test
 	public void checkInheritedAnnotationsWhenConflictingThenAnnotationConfigurationException() throws Exception {
 		Supplier<Authentication> authentication = () -> new TestingAuthenticationToken("user", "password", "ROLE_USER");
 		MockMethodInvocation methodInvocation = new MockMethodInvocation(new ConflictingAnnotations(),
@@ -309,4 +331,15 @@ public class PreAuthorizeAuthorizationManagerTests {
 
 	}
 
+	@PreAuthorize("hasRole('ADMIN')")
+	static abstract class UsingAbstractClass {
+
+		public String doSomethingString(String s) {
+			return s;
+		}
+	}
+
+	static final class ActualProtectedClassWithMethodInAbstract extends UsingAbstractClass {
+
+	}
 }
